@@ -697,6 +697,28 @@ def plot_project_gantt_with_start_end(
     ax.set_ylabel("Task Chain")
     fig.autofmt_xdate(rotation=30, ha="right")
 
+    # --- Add Vertical Line for Publish Date ---
+    if project_publish_date:
+        publish_date_num = mdates.date2num(project_publish_date)
+        # Check if the publish date is within the plotted range
+        if plot_start_num < publish_date_num < plot_limit_end_num:
+            ax.axvline(
+                x=publish_date_num,
+                color="blue",  # Choose a distinct color
+                linestyle="--",  # Make it dashed
+                linewidth=1.5,
+                label=f"Publish Date ({project_publish_date.strftime('%Y-%m-%d')})",  # Add label for legend
+                zorder=10,  # Ensure it's visible on top of most elements
+            )
+            print(
+                f"Adding vertical line for publish date: {project_publish_date.strftime('%Y-%m-%d')}"
+            )
+        else:
+            print(
+                f"Publish date {project_publish_date.strftime('%Y-%m-%d')} is outside the plot range, not drawing line."
+            )
+    # --- End Vertical Line ---
+
     # --- Configure Top X-axis (Day Index) ---
     ax2 = ax.twiny()
     lim_min_num, lim_max_num = ax.get_xlim()
