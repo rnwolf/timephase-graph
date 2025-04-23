@@ -70,22 +70,33 @@ def load_process_project_data(file_path):
     # --- End Calendar Type ---
 
     try:
+        # Parse the date string (might include time)
+        raw_start_date_str = project_info.get("start_date")
+        if raw_start_date_str is None:
+            raise ValueError("Project start date is missing in JSON")
+
         try:
             from dateutil import parser
 
-            project_start_date = parser.parse(project_info.get("start_date"))
+            parsed_start_date = parser.parse(raw_start_date_str)
         except ImportError:
             # print("Warning: dateutil not found. Using basic ISO format parsing.")
-            project_start_date = datetime.fromisoformat(project_info.get("start_date"))
-    except (
-        ValueError,
-        TypeError,
-        AttributeError,
-    ) as e:  # Added AttributeError for None case
+            parsed_start_date = datetime.fromisoformat(raw_start_date_str)
+
+        # --- Normalize to midnight ---
+        project_start_date = parsed_start_date.replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        print(
+            f"Normalized Project Start Date (Midnight): {project_start_date.isoformat()}"
+        )
+        # --- End Normalization ---
+
+    except (ValueError, TypeError, AttributeError) as e:
         print(
             f"Error: Invalid or missing project start date: {project_info.get('start_date')}. {e}"
         )
-        return None, None, None, None, None  # Cannot proceed without a start date
+        return None, None, None, None, None
 
     tasks = {}
     dependencies = []
@@ -104,6 +115,8 @@ def load_process_project_data(file_path):
             start_offset = float(task_item.get("start", 0))
             finish_offset = float(task_item.get("finish", start_offset))
 
+            print(project_start_date)
+            print(timedelta(days=start_offset))
             # --- Corrected date calculations based on finish index meaning ---
             # Start date is midnight at the beginning of the start_offset day
             start_datetime = project_start_date + timedelta(days=start_offset)
@@ -112,6 +125,17 @@ def load_process_project_data(file_path):
             # (meaning the task ends just before this time)
             end_datetime = project_start_date + timedelta(days=finish_offset)
             # --- End of correction ---
+
+            # --- DEBUG PRINT for the specific task ---
+            # Check if this is the task you're interested in (e.g., start offset is 0)
+            if start_offset == 0 and finish_offset == 30:
+                print("-" * 20)
+                print(f"DEBUG: Task '{task_name}' (ID: {task_id})")
+                print(f"  JSON start: {start_offset}, finish: {finish_offset}")
+                print(f"  Calculated start_datetime: {start_datetime.isoformat()}")
+                print(f"  Calculated end_datetime:   {end_datetime.isoformat()}")
+                print("-" * 20)
+            # --- END DEBUG PRINT ---
 
             # Check if calculated end is not after start
             if end_datetime <= start_datetime:
