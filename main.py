@@ -44,6 +44,9 @@ def load_process_project_data(file_path):
     """Loads project data from JSON, calculates dates, and prepares graph structures."""
     project_start_date = None  # Initialize
     calendar_type = "standard"  # Default calendar type
+    project_name = "Project"  # Default name
+    project_publish_date = None  # Default publish date
+
     try:
         with open(file_path, "r") as f:
             data = json.load(f)
@@ -57,7 +60,8 @@ def load_process_project_data(file_path):
     project_info = data.get("project_info", {})
     tasks_data = data.get("tasks", [])
 
-    # --- Get Calendar Type ---
+    # --- Get project info ---
+    project_name = project_info.get("name", "Project")  # Get name, default to "Project"
     raw_calendar_type = project_info.get("calendar", "standard").lower()
     if raw_calendar_type in ["standard", "continuous"]:
         calendar_type = raw_calendar_type
@@ -68,6 +72,24 @@ def load_process_project_data(file_path):
         calendar_type = "standard"
     print(f"Using calendar type: {calendar_type}")
     # --- End Calendar Type ---
+
+    # Parse publish date
+    raw_publish_date_str = project_info.get("publish_date")
+    if raw_publish_date_str:
+        try:
+            # Use dateutil if available, otherwise isoformat
+            try:
+                from dateutil import parser
+
+                project_publish_date = parser.parse(raw_publish_date_str)
+            except ImportError:
+                project_publish_date = datetime.fromisoformat(raw_publish_date_str)
+        except (ValueError, TypeError) as e:
+            print(
+                f"Warning: Could not parse project publish date '{raw_publish_date_str}'. {e}"
+            )
+            project_publish_date = None  # Set to None if parsing fails
+    # --- End Get Project Info ---
 
     try:
         # Parse the date string (might include time)
@@ -176,6 +198,17 @@ def load_process_project_data(file_path):
                     f"Warning: Unknown task type '{type_str}' for task '{task_name}'. Using UNASSIGNED."
                 )
                 task_type = TaskType.UNASSIGNED
+
+            # --- Load Tags ---
+            task_tags = task_item.get("tags", [])
+            # Basic validation: ensure it's a list
+            if not isinstance(task_tags, list):
+                print(
+                    f"Warning: Tags for task '{task_name}' is not a list. Ignoring tags."
+                )
+                task_tags = []
+            # --- End Load Tags ---
+
             tasks[task_name] = {
                 "id": task_id,
                 "start": start_datetime,
@@ -189,6 +222,7 @@ def load_process_project_data(file_path):
                 "resources": task_item.get("resources", ""),
                 "predecessors_str": task_item.get("predecessors", ""),
                 "url": task_url,
+                "tags": task_tags,
             }
             stream_map[task_name] = tasks[task_name]["chain"]
         except (ValueError, TypeError) as e:
@@ -218,7 +252,15 @@ def load_process_project_data(file_path):
                     f"Warning: Invalid predecessor format '{pred_str}' for task '{task_name}'."
                 )
 
-    return project_start_date, tasks, dependencies, stream_map, calendar_type
+    return (
+        project_start_date,
+        tasks,
+        dependencies,
+        stream_map,
+        calendar_type,
+        project_name,
+        project_publish_date,
+    )
 
 
 # --- Function to add Global START/END Nodes ---
@@ -315,7 +357,13 @@ def add_global_start_end(G, tasks, stream_map):
 
 # --- Plotting Function ---
 def plot_project_gantt_with_start_end(
-    project_start_date, tasks, dependencies, stream_map, calendar_type="standard"
+    project_start_date,
+    tasks,
+    dependencies,
+    stream_map,
+    calendar_type="standard",
+    project_name="Project",
+    project_publish_date=None,
 ):
     """
     Generates the Gantt chart plot including START/END nodes.
@@ -458,6 +506,7 @@ def plot_project_gantt_with_start_end(
             has_remaining_data = data.get(
                 "has_remaining_data", False
             )  # <<< Get the flag
+            task_tags = data.get("tags", [])
 
             # Draw the main (background) task bar if it has duration
             if total_duration_td > timedelta(0):
@@ -520,6 +569,32 @@ def plot_project_gantt_with_start_end(
                 if task_url:
                     text_label.set_url(task_url)
                 # --- End Text Label ---
+
+                # --- Add Tags Text ---
+                if task_tags:
+                    tags_str = " ".join(
+                        [f"#{tag}" for tag in task_tags]
+                    )  # Format as #tag1 #tag2
+                    # Position near the right edge of the bar
+                    # Use end_num and right alignment, maybe small pixel offset
+                    ax.text(
+                        end_num,  # X position at the end of the bar
+                        y,  # Same vertical center
+                        tags_str,
+                        ha="right",  # Align text to the right of the x position
+                        va="center",
+                        fontsize=6,  # Make tags smaller
+                        color="white",  # Use white for contrast on colored bars
+                        zorder=5,  # Ensure tags are on top
+                        # Optional: Add a background box for better readability
+                        bbox=dict(
+                            facecolor="black",
+                            alpha=0.4,
+                            pad=1,
+                            boxstyle="round,pad=0.1",
+                        ),
+                    )
+                # --- End Add Tags Text ---
 
     # Add markers and annotations for START/END nodes
     for node_name in [START_NODE, END_NODE]:
@@ -601,7 +676,15 @@ def plot_project_gantt_with_start_end(
     # --- End of AutoDateLocator usage ---
 
     ax.set_xlabel("Date")
-    ax.set_title("Project Timeline Gantt Chart")
+
+    # --- Construct and Set Title ---
+    title_str = f"{project_name} - Timeline"
+    if project_publish_date:
+        # Format publish date nicely
+        title_str += f" (Data as of: {project_publish_date.strftime('%Y-%m-%d %H:%M')})"
+    ax.set_title(title_str)  # Use the constructed title
+    # --- End Title ---
+
     ax.invert_yaxis()
     ax.grid(True, axis="x", linestyle="--", alpha=0.6)
     ax.set_yticks(sorted(list(set(y_levels.values()))))
@@ -671,9 +754,15 @@ def plot_project_gantt_with_start_end(
 if __name__ == "__main__":
     # 1. Load Data from File
     print(f"Loading data from {JSON_FILE_PATH}...")
-    project_start_date, tasks, dependencies, stream_map, calendar_type = (
-        load_process_project_data(JSON_FILE_PATH)
-    )
+    (
+        project_start_date,
+        tasks,
+        dependencies,
+        stream_map,
+        calendar_type,
+        project_name,
+        project_publish_date,
+    ) = load_process_project_data(JSON_FILE_PATH)
     if tasks is None or project_start_date is None:
         print("Failed to load or process project data. Exiting.")
         sys.exit(1)  # Exit with error code
@@ -682,7 +771,13 @@ if __name__ == "__main__":
     # 2. Create the Gantt Plot
     # Note: START/END nodes are added within the plotting function now
     fig = plot_project_gantt_with_start_end(
-        project_start_date, tasks, dependencies, stream_map, calendar_type
+        project_start_date,
+        tasks,
+        dependencies,
+        stream_map,
+        calendar_type,
+        project_name,
+        project_publish_date,
     )
 
     # 3. Save Plot to SVG File

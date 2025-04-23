@@ -2,7 +2,9 @@
     "project_info": {
       "start_date": "2025-01-01T10:00:00.000000",
       "calendar": "standard",
-      "hours_per_day": 8
+      "hours_per_day": 8,
+      "name": "Project ABC",
+      "publish_date": "2025-01-01T10:00:00.000000"
     },
     "tasks": [
       {
@@ -15,8 +17,8 @@
         "chain": "critical",
         "resources": "R",
         "predecessors": "",
-        "url": "https://google.com"
-
+        "url": "https://google.com",
+        "tags": ["hello", "world"]
       },
       {
         "id": 2,
