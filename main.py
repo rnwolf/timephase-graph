@@ -295,7 +295,21 @@ def plot_project_gantt_with_start_end(
     add_global_start_end(G, tasks, stream_map)
 
     # 2. Layout Calculations
-    project_start_num_base = mdates.date2num(project_start_date)
+    # *** Ensure base is calculated from midnight ***
+    project_start_midnight = datetime(
+        project_start_date.year,
+        project_start_date.month,
+        project_start_date.day,
+        0,
+        0,
+        0,  # Explicitly set time to 00:00:00
+        # tzinfo can be omitted if mpl.rcParams['timezone'] = 'UTC' is set,
+        # otherwise consider adding tzinfo=timezone.utc if needed.
+    )
+    project_start_num_base = mdates.date2num(project_start_midnight)
+    # *** End of base calculation adjustment ***
+
+    # 2. Layout Calculations
     unique_chains = sorted(list(set(stream_map.values())))
     stream_levels = {chain: i for i, chain in enumerate(unique_chains)}
     y_levels = {}
@@ -503,37 +517,37 @@ def plot_project_gantt_with_start_end(
 
     # --- Configure Top X-axis (Day Index) ---
     ax2 = ax.twiny()
-    # Set limits based on bottom axis numerical limits initially
     lim_min_num, lim_max_num = ax.get_xlim()
     ax2.set_xlim(lim_min_num, lim_max_num)
 
     # --- Link the Locators and Apply FuncFormatter ---
-    # 1. Get the locator from the bottom axis (which is DayLocator)
     bottom_locator = ax.xaxis.get_major_locator()
+    ax2.xaxis.set_major_locator(bottom_locator)  # Keep locators linked
 
-    # 2. Set the top axis to use the SAME locator instance
-    #    This ensures ticks are always generated at the same numerical positions (midnights)
-    ax2.xaxis.set_major_locator(bottom_locator)
-
-    # 3. Define the formatter function (rounding for robustness)
+    # 3. Define the formatter function (using round())
     def day_index_formatter(tick_val, pos):
+        # Calculate the difference in days (float)
         day_index_float = tick_val - project_start_num_base
+        # Round the float to the NEAREST integer for the label
         day_index_int = round(day_index_float)
-        return f"{day_index_int}"
+        # --- Optional Debug Print (Uncomment to diagnose further if needed) ---
+        # try:
+        #     tick_dt = mdates.num2date(tick_val)
+        #     # Check specifically around the expected start date tick
+        #     if abs(tick_val - project_start_num_base) < 0.1 or abs(tick_val - (project_start_num_base + 1)) < 0.1:
+        #          print(f"Tick Date: {tick_dt.strftime('%Y-%m-%d %H:%M')}, Tick Val: {tick_val:.6f}, Base: {project_start_num_base:.6f}, Diff: {day_index_float:.6f}, Rounded Int: {day_index_int}")
+        # except Exception as e:
+        #     print(f"Debug print error: {e}")
+        # --- End Debug Print ---
+        return f"{day_index_int}"  # Return the rounded integer as a string
 
     # 4. Apply the FuncFormatter to the top axis
     ax2.xaxis.set_major_formatter(mticker.FuncFormatter(day_index_formatter))
     # --- End of Linking ---
 
-    # Remove the explicit setting of ticks and labels, as the locator+formatter handle it
-    # ax2.set_xticks(bottom_tick_nums) # REMOVE or comment out this line
-    # ax2.set_xticklabels(...) # REMOVE or comment out this line
-
-    # Keep the axis label
     ax2.set_xlabel("Day Index (Relative to Project Start)")
 
-    # Ensure the top axis limits update when the bottom axis is panned/zoomed
-    # This callback links the limits after the initial setup.
+    # Link limits callback
     def update_ax2_limits(ax_bottom):
         ax2.set_xlim(ax_bottom.get_xlim())
 
