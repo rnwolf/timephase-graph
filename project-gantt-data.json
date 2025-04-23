@@ -1,7 +1,7 @@
 {
     "project_info": {
-      "start_date": "2025-04-22T21:02:45.466519",
-      "calendar": "continuous",
+      "start_date": "2025-01-01T21:00:00.000000",
+      "calendar": "standard",
       "hours_per_day": 8
     },
     "tasks": [
