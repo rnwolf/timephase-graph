@@ -1,0 +1,79 @@
+{
+    "project_info": {
+      "start_date": "2025-04-22T21:02:45.466519",
+      "calendar": "continuous",
+      "hours_per_day": 8
+    },
+    "tasks": [
+      {
+        "id": 1,
+        "name": "T1.1",
+        "start": 0,
+        "finish": 30,
+        "type": "CRITICAL",
+        "chain": "critical",
+        "resources": "R",
+        "predecessors": ""
+      },
+      {
+        "id": 2,
+        "name": "T1.2",
+        "start": 30,
+        "finish": 50,
+        "type": "CRITICAL",
+        "chain": "critical",
+        "resources": "G",
+        "predecessors": "1"
+      },
+      {
+        "id": 3,
+        "name": "T3",
+        "start": 50,
+        "finish": 80,
+        "type": "CRITICAL",
+        "chain": "critical",
+        "resources": "M",
+        "predecessors": "2,5"
+      },
+      {
+        "id": 6,
+        "name": "Project Buffer",
+        "start": 80,
+        "finish": 120.0,
+        "type": "BUFFER",
+        "chain": "critical",
+        "resources": "",
+        "predecessors": "3"
+      },
+      {
+        "id": 4,
+        "name": "T2.1",
+        "start": 0,
+        "finish": 20,
+        "type": "FREE",
+        "chain": "feeding 1",
+        "resources": "B",
+        "predecessors": ""
+      },
+      {
+        "id": 5,
+        "name": "T2.2",
+        "start": 20,
+        "finish": 30,
+        "type": "FEEDING",
+        "chain": "feeding 1",
+        "resources": "G",
+        "predecessors": "4"
+      },
+      {
+        "id": 7,
+        "name": "Feeding Buffer 1",
+        "start": 30,
+        "finish": 45.0,
+        "type": "BUFFER",
+        "chain": "feeding 1",
+        "resources": "",
+        "predecessors": "5"
+      }
+    ]
+  }
