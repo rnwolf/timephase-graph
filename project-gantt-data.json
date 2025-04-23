@@ -10,10 +10,13 @@
         "name": "T1.1",
         "start": 0,
         "finish": 30,
+        "remaining": 10,
         "type": "CRITICAL",
         "chain": "critical",
         "resources": "R",
-        "predecessors": ""
+        "predecessors": "",
+        "url": "https://google.com"
+
       },
       {
         "id": 2,

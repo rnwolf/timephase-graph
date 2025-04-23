@@ -115,8 +115,6 @@ def load_process_project_data(file_path):
             start_offset = float(task_item.get("start", 0))
             finish_offset = float(task_item.get("finish", start_offset))
 
-            print(project_start_date)
-            print(timedelta(days=start_offset))
             # --- Corrected date calculations based on finish index meaning ---
             # Start date is midnight at the beginning of the start_offset day
             start_datetime = project_start_date + timedelta(days=start_offset)
@@ -126,17 +124,6 @@ def load_process_project_data(file_path):
             end_datetime = project_start_date + timedelta(days=finish_offset)
             # --- End of correction ---
 
-            # --- DEBUG PRINT for the specific task ---
-            # Check if this is the task you're interested in (e.g., start offset is 0)
-            if start_offset == 0 and finish_offset == 30:
-                print("-" * 20)
-                print(f"DEBUG: Task '{task_name}' (ID: {task_id})")
-                print(f"  JSON start: {start_offset}, finish: {finish_offset}")
-                print(f"  Calculated start_datetime: {start_datetime.isoformat()}")
-                print(f"  Calculated end_datetime:   {end_datetime.isoformat()}")
-                print("-" * 20)
-            # --- END DEBUG PRINT ---
-
             # Check if calculated end is not after start
             if end_datetime <= start_datetime:
                 print(
@@ -144,7 +131,42 @@ def load_process_project_data(file_path):
                 )
                 end_datetime = start_datetime  # Set end time equal for zero duration
 
-            duration = end_datetime - start_datetime
+            total_duration_td = end_datetime - start_datetime
+
+            # --- Load and calculate remaining/completed duration ---
+            remaining_offset = task_item.get("remaining")  # Get raw value
+            remaining_duration_td = timedelta(
+                0
+            )  # Default to 0 remaining (100% complete)
+            has_remaining_data = False  # <<< Initialize flag
+
+            if remaining_offset is not None:
+                has_remaining_data = True  # <<< Set flag if 'remaining' exists
+                try:
+                    remaining_offset_float = float(remaining_offset)
+                    if remaining_offset_float < 0:
+                        print(
+                            f"Warning: Task '{task_name}' has negative remaining value ({remaining_offset_float}). Assuming 0 remaining."
+                        )
+                        remaining_offset_float = 0
+                    remaining_duration_td = timedelta(days=remaining_offset_float)
+                    # Ensure remaining is not longer than total duration
+                    if remaining_duration_td > total_duration_td:
+                        print(
+                            f"Warning: Task '{task_name}' has remaining duration ({remaining_duration_td}) longer than total duration ({total_duration_td}). Clamping remaining to total."
+                        )
+                        remaining_duration_td = total_duration_td
+                except (ValueError, TypeError):
+                    print(
+                        f"Warning: Invalid 'remaining' value '{remaining_offset}' for task '{task_name}'. Assuming 0 remaining."
+                    )
+                    remaining_duration_td = timedelta(0)
+                    has_remaining_data = False  # Reset flag if parsing failed
+
+            completed_duration_td = total_duration_td - remaining_duration_td
+            # --- End duration calculation ---
+
+            task_url = task_item.get("url", None)  # Get the URL, default to None
 
             type_str = task_item.get("type", "UNASSIGNED").upper()
             try:
@@ -158,11 +180,15 @@ def load_process_project_data(file_path):
                 "id": task_id,
                 "start": start_datetime,
                 "end": end_datetime,
-                "duration": duration,
+                "total_duration": total_duration_td,  # Store total duration
+                "completed_duration": completed_duration_td,  # Store completed duration
+                "remaining_duration": remaining_duration_td,
+                "has_remaining_data": has_remaining_data,  # <<< Store the flag# Store remaining duration
                 "type": task_type,
                 "chain": task_item.get("chain", "Unknown"),
                 "resources": task_item.get("resources", ""),
                 "predecessors_str": task_item.get("predecessors", ""),
+                "url": task_url,
             }
             stream_map[task_name] = tasks[task_name]["chain"]
         except (ValueError, TypeError) as e:
@@ -424,31 +450,76 @@ def plot_project_gantt_with_start_end(
             y = y_levels.get(task_name, 0)
             task_type = data.get("type", TaskType.UNASSIGNED)
             color = TASK_COLORS.get(task_type, TASK_COLORS[TaskType.UNASSIGNED])
+            task_url = data.get("url", None)
 
-            if start_num < end_num:
-                ax.barh(
-                    y,
-                    end_num - start_num,
+            # Get duration values (as timedeltas)
+            total_duration_td = data.get("total_duration", timedelta(0))
+            completed_duration_td = data.get("completed_duration", timedelta(0))
+            has_remaining_data = data.get(
+                "has_remaining_data", False
+            )  # <<< Get the flag
+
+            # Draw the main (background) task bar if it has duration
+            if total_duration_td > timedelta(0):
+                main_bar_height = 0.5  # Define main bar height
+                bar_total = ax.barh(
+                    y,  # Centered vertically
+                    total_duration_td.total_seconds() / (24 * 3600),
                     left=start_num,
-                    height=0.5,
+                    height=main_bar_height,  # Use defined height
                     color=color,
                     edgecolor="k",
-                    alpha=0.8,
+                    alpha=0.5,  # Make background slightly more transparent
+                    zorder=2,
                 )
+                if task_url:
+                    bar_total[0].set_url(task_url)
+
+                # --- Draw Progress Bar (Thin bar at the bottom) ---
+                if has_remaining_data and completed_duration_td > timedelta(0):
+                    completed_width_days = completed_duration_td.total_seconds() / (
+                        24 * 3600
+                    )
+                    progress_bar_height = 0.1  # Define thin height for progress
+
+                    # Calculate y-position for the bottom progress bar
+                    # Main bar bottom edge is y - main_bar_height / 2
+                    # Center of progress bar should be main_bar_bottom_edge + progress_bar_height / 2
+                    y_progress = (y - main_bar_height / 2) + (progress_bar_height / 2)
+
+                    ax.barh(
+                        y_progress,  # Positioned along the bottom edge
+                        completed_width_days,
+                        left=start_num,
+                        height=progress_bar_height,  # Use the thin height
+                        color=color,  # Use same base color (could also use black or a darker shade)
+                        edgecolor=None,  # Remove edge for a cleaner line look
+                        alpha=1.0,  # Make progress bar fully opaque
+                        zorder=3,  # Draw progress bar on top of main bar
+                    )
+                # --- End Progress Bar ---
+
+                # --- Text Label ---
+                # Position text relative to the main bar's center
                 task_id = data.get("id", "?")
                 resources = data.get("resources", "")
                 label_text = f"{task_id} {task_name}"
                 if resources:
                     label_text += f" ({resources})"
-                ax.text(
-                    (start_num + end_num) / 2,
-                    y,
+
+                text_label = ax.text(
+                    start_num + (total_duration_td.total_seconds() / (24 * 3600)) / 2,
+                    y,  # Center text vertically in the main bar
                     label_text,
                     va="center",
                     ha="center",
                     fontsize=8,
                     color="black",
+                    zorder=4,  # Ensure text is on top
                 )
+                if task_url:
+                    text_label.set_url(task_url)
+                # --- End Text Label ---
 
     # Add markers and annotations for START/END nodes
     for node_name in [START_NODE, END_NODE]:
@@ -519,11 +590,15 @@ def plot_project_gantt_with_start_end(
     # 5. Configure Axes
     ax.set_xlim(plot_start_num, plot_limit_end_num)
     # --- Configure Bottom X-axis (Dates) ---
-    # *** Use DayLocator to force ticks at midnight ***
-    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
-    # Minor ticks can be useful for seeing hours if zoomed, but not strictly needed for alignment
-    # ax.xaxis.set_minor_locator(mdates.HourLocator(interval=6))
+    # *** Use AutoDateLocator for adaptive ticks ***
+    locator = mdates.AutoDateLocator(
+        minticks=5, maxticks=10
+    )  # Adjust minticks/maxticks as desired
+    formatter = mdates.ConciseDateFormatter(locator)  # Use concise formatter
+
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)
+    # --- End of AutoDateLocator usage ---
 
     ax.set_xlabel("Date")
     ax.set_title("Project Timeline Gantt Chart")
@@ -554,15 +629,6 @@ def plot_project_gantt_with_start_end(
         day_index_float = tick_val - project_start_num_base
         # Round the float to the NEAREST integer for the label
         day_index_int = round(day_index_float)
-        # --- Optional Debug Print (Uncomment to diagnose further if needed) ---
-        # try:
-        #     tick_dt = mdates.num2date(tick_val)
-        #     # Check specifically around the expected start date tick
-        #     if abs(tick_val - project_start_num_base) < 0.1 or abs(tick_val - (project_start_num_base + 1)) < 0.1:
-        #          print(f"Tick Date: {tick_dt.strftime('%Y-%m-%d %H:%M')}, Tick Val: {tick_val:.6f}, Base: {project_start_num_base:.6f}, Diff: {day_index_float:.6f}, Rounded Int: {day_index_int}")
-        # except Exception as e:
-        #     print(f"Debug print error: {e}")
-        # --- End Debug Print ---
         return f"{day_index_int}"  # Return the rounded integer as a string
 
     # 4. Apply the FuncFormatter to the top axis
