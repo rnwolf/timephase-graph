@@ -37,3 +37,36 @@ calendar_type: 'standard' (5 day work week) or 'continuous' (7 day work week)
         "predecessors": "1"
       },
 }`
+
+
+## Package Structure
+
+
+pyganttccpm/
+├── pyganttccpm/          # The actual package source code
+│   ├── __init__.py
+│   ├── config.py         # Enums, constants, colors
+│   ├── loader.py         # Data loading and processing
+│   ├── graph_utils.py    # Graph manipulation (add start/end)
+│   └── plotter.py        # The main plotting function
+├── examples/             # Optional: Example usage scripts
+│   └── create_chart.py
+├── tests/                # Optional: Unit/integration tests
+│   └── ...
+├── pyproject.toml        # Build system configuration
+├── setup.cfg             # Package metadata and dependencies (alternative to pyproject.toml)
+├── README.md             # Updated documentation
+└── LICENSE               # Your chosen open-source license
+
+
+## Development
+
+You can then install your package locally for testing using `pip install -e .` in the root pyganttccpm/ directory (the one containing pyproject.toml). The -e makes it editable, so changes in your source files are reflected immediately.
+
+## Usage
+
+Run the example script (python examples/create_chart.py) to test.
+
+## Publish
+
+Eventually, you can build distribution files (python -m build) and publish to PyPI if desired.
