@@ -3,6 +3,9 @@ import json
 from datetime import datetime, timedelta
 import sys
 from .config import TaskType
+import logging
+
+log = logging.getLogger('pyganttccpm')  # <-- Get the library logger
 
 
 # --- New Processing Function ---
@@ -19,7 +22,7 @@ def process_project_data(project_info_dict, tasks_list):
     if raw_calendar_type in ['standard', 'continuous']:
         calendar_type = raw_calendar_type
     else:
-        print(
+        log.warning(
             f"Warning: Invalid calendar type '{project_info_dict.get('calendar', '')}'. Defaulting to 'standard'."
         )
         calendar_type = 'standard'
@@ -35,7 +38,7 @@ def process_project_data(project_info_dict, tasks_list):
             except ImportError:
                 project_publish_date = datetime.fromisoformat(raw_publish_date_str)
         except (ValueError, TypeError) as e:
-            print(
+            log.warning(
                 f"Warning: Could not parse project publish date '{raw_publish_date_str}'. {e}"
             )
             project_publish_date = None
@@ -54,7 +57,7 @@ def process_project_data(project_info_dict, tasks_list):
             hour=0, minute=0, second=0, microsecond=0
         )
     except (ValueError, TypeError, AttributeError) as e:
-        print(
+        log.error(
             f"Error: Invalid or missing project start date: {project_info_dict.get('start_date')}. {e}"
         )
         # Return None for all if start date is invalid
@@ -124,7 +127,7 @@ def process_project_data(project_info_dict, tasks_list):
             }
             stream_map[task_name] = tasks[task_name]['chain']
         except (ValueError, TypeError) as e:
-            print(
+            log.warning(
                 f"Warning: Skipping task '{task_name}' (ID: {task_id}) due to invalid data: {e}"
             )
             continue
@@ -144,11 +147,11 @@ def process_project_data(project_info_dict, tasks_list):
                     if pred_name:
                         dependencies.append((pred_name, task_name))
                     else:
-                        print(
+                        log.warning(
                             f"Warning: Predecessor ID '{p_id}' not found for task '{task_name}'."
                         )
             except ValueError:
-                print(
+                log.warning(
                     f"Warning: Invalid predecessor format '{pred_str}' for task '{task_name}'."
                 )
     # --- End Process Tasks ---
@@ -175,10 +178,10 @@ def load_process_project_data(file_path):
         project_info_dict = data.get('project_info', {})
         tasks_list = data.get('tasks', [])
     except FileNotFoundError:
-        print(f'Error: JSON file not found at {file_path}')
+        log.error(f'Error: JSON file not found at {file_path}')
         return None, None, None, None, None, None, None
     except json.JSONDecodeError:
-        print(f'Error: Could not decode JSON from {file_path}')
+        log.error(f'Error: Could not decode JSON from {file_path}')
         return None, None, None, None, None, None, None
 
     # Delegate processing to the new function

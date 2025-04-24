@@ -6,6 +6,9 @@ import matplotlib.patches as mpatches
 import matplotlib.ticker as mticker
 import networkx as nx
 from datetime import datetime, timedelta
+import logging
+
+log = logging.getLogger('pyganttccpm')  # <-- Get the library logger
 
 # Import from other modules within the package
 from .config import TASK_COLORS, TaskType, START_NODE, END_NODE
@@ -21,8 +24,8 @@ def plot_project_gantt_with_start_end(
     tasks,
     dependencies,
     stream_map,
-    calendar_type="standard",
-    project_name="Project",
+    calendar_type='standard',
+    project_name='Project',
     project_publish_date=None,
 ):
     """
@@ -39,7 +42,7 @@ def plot_project_gantt_with_start_end(
     Returns:
         matplotlib.figure.Figure: The generated Matplotlib figure object.
     """
-    print("Generating Gantt plot...")
+    log.info('Generating Gantt plot...')
 
     # 1. Build Graph (including START/END if not already present)
     G = nx.DiGraph()
@@ -77,24 +80,24 @@ def plot_project_gantt_with_start_end(
             y_levels[task_name] = -stream_levels[chain]
         else:
             # This case should ideally not happen if add_global_start_end ran correctly
-            print(
+            log.warning(
                 f"Warning: Task '{task_name}' missing chain/stream level. Assigning default y=0."
             )
             y_levels[task_name] = 0
 
     # 3. Calculate Date Range for Plotting
     all_dates = [
-        data["start"]
+        data['start']
         for data in tasks.values()
-        if isinstance(data.get("start"), datetime)
+        if isinstance(data.get('start'), datetime)
     ] + [
-        data["end"] for data in tasks.values() if isinstance(data.get("end"), datetime)
+        data['end'] for data in tasks.values() if isinstance(data.get('end'), datetime)
     ]
     if not all_dates:
         min_date = project_start_date  # Use project start if no tasks
         max_date = min_date + timedelta(days=7)
-        print(
-            "Warning: No valid dates found in tasks for range calculation. Using default range."
+        log.warning(
+            'Warning: No valid dates found in tasks for range calculation. Using default range.'
         )
     else:
         min_date = min(all_dates)
@@ -109,8 +112,8 @@ def plot_project_gantt_with_start_end(
     fig, ax = plt.subplots(figsize=(16, 8))
 
     # --- Add Weekend Shading (if standard calendar) ---
-    if calendar_type == "standard":
-        print("Applying weekend shading...")
+    if calendar_type == 'standard':
+        log.info('Applying weekend shading...')
         # Ensure we iterate starting from midnight of the plot_start_date
         iter_start_date = datetime(
             plot_start_date.year, plot_start_date.month, plot_start_date.day
@@ -141,7 +144,7 @@ def plot_project_gantt_with_start_end(
                 ax.axvspan(
                     day_start_num,
                     day_end_num,
-                    facecolor="lightgray",
+                    facecolor='lightgray',
                     alpha=0.3,
                     zorder=-1,  # Ensure it's behind grid lines and bars
                 )
@@ -150,23 +153,23 @@ def plot_project_gantt_with_start_end(
 
     # Plot Bars
     for task_name, data in tasks.items():
-        if isinstance(data.get("start"), datetime) and isinstance(
-            data.get("end"), datetime
+        if isinstance(data.get('start'), datetime) and isinstance(
+            data.get('end'), datetime
         ):
-            start_num = mdates.date2num(data["start"])
-            end_num = mdates.date2num(data["end"])
+            start_num = mdates.date2num(data['start'])
+            end_num = mdates.date2num(data['end'])
             y = y_levels.get(task_name, 0)
-            task_type = data.get("type", TaskType.UNASSIGNED)
+            task_type = data.get('type', TaskType.UNASSIGNED)
             color = TASK_COLORS.get(task_type, TASK_COLORS[TaskType.UNASSIGNED])
-            task_url = data.get("url", None)
+            task_url = data.get('url', None)
 
             # Get duration values (as timedeltas)
-            total_duration_td = data.get("total_duration", timedelta(0))
-            completed_duration_td = data.get("completed_duration", timedelta(0))
+            total_duration_td = data.get('total_duration', timedelta(0))
+            completed_duration_td = data.get('completed_duration', timedelta(0))
             has_remaining_data = data.get(
-                "has_remaining_data", False
+                'has_remaining_data', False
             )  # <<< Get the flag
-            task_tags = data.get("tags", [])
+            task_tags = data.get('tags', [])
 
             # Draw the main (background) task bar if it has duration
             if total_duration_td > timedelta(0):
@@ -177,7 +180,7 @@ def plot_project_gantt_with_start_end(
                     left=start_num,
                     height=main_bar_height,  # Use defined height
                     color=color,
-                    edgecolor="k",
+                    edgecolor='k',
                     alpha=0.5,  # Make background slightly more transparent
                     zorder=2,
                 )
@@ -210,20 +213,20 @@ def plot_project_gantt_with_start_end(
 
                 # --- Text Label ---
                 # Position text relative to the main bar's center
-                task_id = data.get("id", "?")
-                resources = data.get("resources", "")
-                label_text = f"{task_id} {task_name}"
+                task_id = data.get('id', '?')
+                resources = data.get('resources', '')
+                label_text = f'{task_id} {task_name}'
                 if resources:
-                    label_text += f" ({resources})"
+                    label_text += f' ({resources})'
 
                 text_label = ax.text(
                     start_num + (total_duration_td.total_seconds() / (24 * 3600)) / 2,
                     y,  # Center text vertically in the main bar
                     label_text,
-                    va="center",
-                    ha="center",
+                    va='center',
+                    ha='center',
                     fontsize=8,
-                    color="black",
+                    color='black',
                     zorder=4,  # Ensure text is on top
                 )
                 if task_url:
@@ -232,8 +235,8 @@ def plot_project_gantt_with_start_end(
 
                 # --- Add Tags Text ---
                 if task_tags:
-                    tags_str = " ".join(
-                        [f"#{tag}" for tag in task_tags]
+                    tags_str = ' '.join(
+                        [f'#{tag}' for tag in task_tags]
                     )  # Format as #tag1 #tag2
                     # Position near the right edge of the bar
                     # Use end_num and right alignment, maybe small pixel offset
@@ -241,17 +244,17 @@ def plot_project_gantt_with_start_end(
                         end_num,  # X position at the end of the bar
                         y,  # Same vertical center
                         tags_str,
-                        ha="right",  # Align text to the right of the x position
-                        va="center",
+                        ha='right',  # Align text to the right of the x position
+                        va='center',
                         fontsize=6,  # Make tags smaller
-                        color="white",  # Use white for contrast on colored bars
+                        color='white',  # Use white for contrast on colored bars
                         zorder=5,  # Ensure tags are on top
                         # Optional: Add a background box for better readability
                         bbox=dict(
-                            facecolor="black",
+                            facecolor='black',
                             alpha=0.4,
                             pad=1,
-                            boxstyle="round,pad=0.1",
+                            boxstyle='round,pad=0.1',
                         ),
                     )
                 # --- End Add Tags Text ---
@@ -260,41 +263,41 @@ def plot_project_gantt_with_start_end(
     for node_name in [START_NODE, END_NODE]:
         if node_name in tasks and node_name in y_levels:
             node_data = tasks[node_name]
-            if isinstance(node_data.get("start"), datetime):
-                node_date = node_data["start"]
+            if isinstance(node_data.get('start'), datetime):
+                node_date = node_data['start']
                 x_pos = mdates.date2num(node_date)
                 y_pos = y_levels[node_name]
-                task_type = node_data.get("type", TaskType.SYSTEM)
+                task_type = node_data.get('type', TaskType.SYSTEM)
                 color = TASK_COLORS.get(task_type, TASK_COLORS[TaskType.SYSTEM])
                 ax.plot(
                     x_pos,
                     y_pos,
-                    "D",
+                    'D',
                     markersize=5,
                     color=color,
-                    markeredgecolor="black",
+                    markeredgecolor='black',
                 )
-                date_str = node_date.strftime("%b %d")
+                date_str = node_date.strftime('%b %d')
                 ax.annotate(
                     date_str,
                     xy=(x_pos, y_pos),
                     xytext=(5, 5),
-                    textcoords="offset points",
-                    ha="left",
-                    va="bottom",
+                    textcoords='offset points',
+                    ha='left',
+                    va='bottom',
                     fontsize=8,
-                    color="black",
+                    color='black',
                 )
 
     # Draw Dependency Arrows
     arrowprops = dict(
-        arrowstyle="->", color="gray", lw=1, connectionstyle="arc3,rad=0.1"
+        arrowstyle='->', color='gray', lw=1, connectionstyle='arc3,rad=0.1'
     )
     for u, v in G.edges():
         # Check if edge source/target are in tasks and have y_levels before proceeding
         if u not in tasks or v not in tasks or u not in y_levels or v not in y_levels:
-            print(
-                f"Warning: Skipping arrow for edge {u}->{v} due to missing task data or y-level."
+            log.warning(
+                f'Warning: Skipping arrow for edge {u}->{v} due to missing task data or y-level.'
             )
             continue
 
@@ -303,23 +306,23 @@ def plot_project_gantt_with_start_end(
         y_level_u = y_levels[u]
         y_level_v = y_levels[v]
 
-        if isinstance(data_u.get("end"), datetime) and isinstance(
-            data_v.get("start"), datetime
+        if isinstance(data_u.get('end'), datetime) and isinstance(
+            data_v.get('start'), datetime
         ):
-            x_start = mdates.date2num(data_u["end"])
+            x_start = mdates.date2num(data_u['end'])
             y_start = y_level_u
-            x_end = mdates.date2num(data_v["start"])
+            x_end = mdates.date2num(data_v['start'])
             y_end = y_level_v
             if abs(x_start - x_end) > 0.01 or abs(y_start - y_end) > 0.01:
                 ax.annotate(
-                    "",
+                    '',
                     xy=(x_end, y_end),
                     xytext=(x_start, y_start),
                     arrowprops=arrowprops,
                 )
         else:
-            print(
-                f"Warning: Missing start/end dates for dependency {u}->{v}. Skipping arrow."
+            log.warning(
+                f'Warning: Missing start/end dates for dependency {u}->{v}. Skipping arrow.'
             )
 
     # 5. Configure Axes
@@ -335,10 +338,10 @@ def plot_project_gantt_with_start_end(
     ax.xaxis.set_major_formatter(formatter)
     # --- End of AutoDateLocator usage ---
 
-    ax.set_xlabel("Date")
+    ax.set_xlabel('Date')
 
     # --- Construct and Set Title ---
-    title_str = f"{project_name} - Timeline"
+    title_str = f'{project_name} - Timeline'
     if project_publish_date:
         # Format publish date nicely
         title_str += f" (Data as of: {project_publish_date.strftime('%Y-%m-%d %H:%M')})"
@@ -346,16 +349,16 @@ def plot_project_gantt_with_start_end(
     # --- End Title ---
 
     ax.invert_yaxis()
-    ax.grid(True, axis="x", linestyle="--", alpha=0.6)
+    ax.grid(True, axis='x', linestyle='--', alpha=0.6)
     ax.set_yticks(sorted(list(set(y_levels.values()))))
     level_to_chain = {lvl: chain for chain, lvl in stream_levels.items()}
     y_tick_labels = [
-        level_to_chain.get(-y, f"Level {-y}")
+        level_to_chain.get(-y, f'Level {-y}')
         for y in sorted(list(set(y_levels.values())))
     ]
     ax.set_yticklabels(y_tick_labels)
-    ax.set_ylabel("Task Chain")
-    fig.autofmt_xdate(rotation=30, ha="right")
+    ax.set_ylabel('Task Chain')
+    fig.autofmt_xdate(rotation=30, ha='right')
 
     # --- Add Vertical Line for Publish Date ---
     if project_publish_date:
@@ -364,17 +367,17 @@ def plot_project_gantt_with_start_end(
         if plot_start_num < publish_date_num < plot_limit_end_num:
             ax.axvline(
                 x=publish_date_num,
-                color="blue",  # Choose a distinct color
-                linestyle="--",  # Make it dashed
+                color='blue',  # Choose a distinct color
+                linestyle='--',  # Make it dashed
                 linewidth=1.5,
                 label=f"Publish Date ({project_publish_date.strftime('%Y-%m-%d')})",  # Add label for legend
                 zorder=10,  # Ensure it's visible on top of most elements
             )
-            print(
+            log.info(
                 f"Adding vertical line for publish date: {project_publish_date.strftime('%Y-%m-%d')}"
             )
         else:
-            print(
+            log.warning(
                 f"Publish date {project_publish_date.strftime('%Y-%m-%d')} is outside the plot range, not drawing line."
             )
     # --- End Vertical Line ---
@@ -394,40 +397,40 @@ def plot_project_gantt_with_start_end(
         day_index_float = tick_val - project_start_num_base
         # Round the float to the NEAREST integer for the label
         day_index_int = round(day_index_float)
-        return f"{day_index_int}"  # Return the rounded integer as a string
+        return f'{day_index_int}'  # Return the rounded integer as a string
 
     # 4. Apply the FuncFormatter to the top axis
     ax2.xaxis.set_major_formatter(mticker.FuncFormatter(day_index_formatter))
     # --- End of Linking ---
 
-    ax2.set_xlabel("Day Index (Relative to Project Start)")
+    ax2.set_xlabel('Day Index (Relative to Project Start)')
 
     # Link limits callback
     def update_ax2_limits(ax_bottom):
         ax2.set_xlim(ax_bottom.get_xlim())
 
-    ax.callbacks.connect("xlim_changed", update_ax2_limits)
+    ax.callbacks.connect('xlim_changed', update_ax2_limits)
 
     # 6. Add Legend
     legend_handles = []
     used_types = set(
-        task_data["type"] for task_data in tasks.values() if "type" in task_data
+        task_data['type'] for task_data in tasks.values() if 'type' in task_data
     )  # Check 'type' exists
     for task_type in TaskType:
         if task_type in used_types:
             color = TASK_COLORS[task_type]
-            label = task_type.name.replace("_", " ").title()
+            label = task_type.name.replace('_', ' ').title()
             legend_handles.append(mpatches.Patch(color=color, label=label))
     if legend_handles:  # Only add legend if there are handles
         ax.legend(
             handles=legend_handles,
-            title="Task Types",
+            title='Task Types',
             bbox_to_anchor=(1.04, 0.5),
-            loc="center left",
+            loc='center left',
             borderaxespad=0.0,
         )
         plt.subplots_adjust(right=0.85)  # Adjust layout only if legend is present
 
-    print("Gantt plot generated.")
+    log.info('Gantt plot generated.')
 
     return fig  # Return the figure object
