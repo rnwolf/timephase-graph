@@ -20,7 +20,7 @@ logging.basicConfig(
 # --- 1. Define Raw Project Data in Python ---
 project_info = {
     'name': 'Processed Data Project',
-    'start_date': '2025-01-01',
+    #'start_date': '2025-01-01',
     'publish_date': '2025-01-15',
     'calendar': 'standard',
 }
