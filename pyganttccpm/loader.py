@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import sys
 from .config import TaskType
 import logging
+import math  # Import math for infinity
 
 log = logging.getLogger('pyganttccpm')  # <-- Get the library logger
 
@@ -15,6 +16,7 @@ def process_project_data(project_info_dict, tasks_list):
     calendar_type = 'standard'
     project_name = 'Project'
     project_publish_date = None
+    is_synthetic_start_date = False
 
     # --- Process Project Info ---
     project_name = project_info_dict.get('name', 'Project')
@@ -43,26 +45,63 @@ def process_project_data(project_info_dict, tasks_list):
             )
             project_publish_date = None
 
-    try:
-        raw_start_date_str = project_info_dict.get('start_date')
-        if raw_start_date_str is None:
-            raise ValueError('Project start date is missing')
+    # --- Process Start Date (or synthesize if missing/invalid) ---
+    raw_start_date_str = project_info_dict.get('start_date')
+    start_date_valid = False
+    if raw_start_date_str:
         try:
-            from dateutil import parser
+            try:
+                from dateutil import parser
 
-            parsed_start_date = parser.parse(raw_start_date_str)
-        except ImportError:
-            parsed_start_date = datetime.fromisoformat(raw_start_date_str)
-        project_start_date = parsed_start_date.replace(
+                parsed_start_date = parser.parse(raw_start_date_str)
+            except ImportError:
+                parsed_start_date = datetime.fromisoformat(raw_start_date_str)
+            # Normalize valid start date
+            project_start_date = parsed_start_date.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            start_date_valid = True
+        except (ValueError, TypeError, AttributeError) as e:
+            log.warning(
+                f"Invalid project start date '{raw_start_date_str}': {e}. Synthesizing start date."
+            )
+            # Proceed to synthesize below
+
+    if not start_date_valid:
+        is_synthetic_start_date = True
+        log.info(
+            'Project start date missing or invalid. Defaulting to continuous calendar and synthesizing start date based on earliest task.'
+        )
+        calendar_type = 'continuous'  # Force continuous calendar
+
+        # Find minimum start offset from tasks
+        min_offset = math.inf
+        has_tasks = False
+        for task_item in tasks_list:
+            try:
+                offset = float(task_item.get('start', 0))
+                min_offset = min(min_offset, offset)
+                has_tasks = True
+            except (ValueError, TypeError):
+                continue  # Ignore tasks with invalid start offsets for this calculation
+
+        if not has_tasks or min_offset == math.inf:
+            log.warning(
+                'No valid task start offsets found. Using today as Day 0 for synthetic start date.'
+            )
+            min_offset = 0
+
+        # Create synthetic start date so Day 0 aligns with min_offset
+        # Use today's date as a base, normalize to midnight, then adjust
+        today_midnight = datetime.now().replace(
             hour=0, minute=0, second=0, microsecond=0
         )
-    except (ValueError, TypeError, AttributeError) as e:
-        log.error(
-            f"Error: Invalid or missing project start date: {project_info_dict.get('start_date')}. {e}"
+        project_start_date = today_midnight - timedelta(days=min_offset)
+        log.info(
+            f'Synthetic Project Start Date (for Day 0 = offset {min_offset}): {project_start_date.isoformat()}'
         )
-        # Return None for all if start date is invalid
-        return None, None, None, None, None, None, None
-    # --- End Process Project Info ---
+
+    # --- End Process Start Date ---
 
     # --- Process Tasks (similar logic as load_process_project_data) ---
     tasks = {}
@@ -164,6 +203,7 @@ def process_project_data(project_info_dict, tasks_list):
         calendar_type,
         project_name,
         project_publish_date,
+        is_synthetic_start_date,
     )
 
 
@@ -179,10 +219,10 @@ def load_process_project_data(file_path):
         tasks_list = data.get('tasks', [])
     except FileNotFoundError:
         log.error(f'Error: JSON file not found at {file_path}')
-        return None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None
     except json.JSONDecodeError:
         log.error(f'Error: Could not decode JSON from {file_path}')
-        return None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None
 
     # Delegate processing to the new function
     return process_project_data(project_info_dict, tasks_list)

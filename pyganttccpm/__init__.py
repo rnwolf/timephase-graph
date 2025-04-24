@@ -23,6 +23,7 @@ __author__ = 'R.N. Wolf'
 __all__ = [
     'plot_project_gantt_with_start_end',
     'process_project_data',
+    'load_process_project_data',
     'TaskType',
     'log',
     '__version__',

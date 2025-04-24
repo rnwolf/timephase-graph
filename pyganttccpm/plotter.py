@@ -27,6 +27,7 @@ def plot_project_gantt_with_start_end(
     calendar_type='standard',
     project_name='Project',
     project_publish_date=None,
+    is_synthetic_start_date=False,
 ):
     """
     Generates the Gantt chart plot including START/END nodes.
@@ -38,7 +39,8 @@ def plot_project_gantt_with_start_end(
         stream_map (dict): Dictionary mapping task names to stream/chain names
                            (potentially modified by add_global_start_end).
         calendar_type (str): 'standard' or 'continuous'.
-
+        is_synthetic_start_date (bool): Flag indicating if project_start_date was synthesized.
+                                         If True, bottom date axis is hidden.
     Returns:
         matplotlib.figure.Figure: The generated Matplotlib figure object.
     """
@@ -277,17 +279,18 @@ def plot_project_gantt_with_start_end(
                     color=color,
                     markeredgecolor='black',
                 )
-                date_str = node_date.strftime('%b %d')
-                ax.annotate(
-                    date_str,
-                    xy=(x_pos, y_pos),
-                    xytext=(5, 5),
-                    textcoords='offset points',
-                    ha='left',
-                    va='bottom',
-                    fontsize=8,
-                    color='black',
-                )
+                if not is_synthetic_start_date:
+                    date_str = node_date.strftime('%b %d')
+                    ax.annotate(
+                        date_str,
+                        xy=(x_pos, y_pos),
+                        xytext=(5, 5),
+                        textcoords='offset points',
+                        ha='left',
+                        va='bottom',
+                        fontsize=8,
+                        color='black',
+                    )
 
     # Draw Dependency Arrows
     arrowprops = dict(
@@ -328,21 +331,26 @@ def plot_project_gantt_with_start_end(
     # 5. Configure Axes
     ax.set_xlim(plot_start_num, plot_limit_end_num)
     # --- Configure Bottom X-axis (Dates) ---
-    # *** Use AutoDateLocator for adaptive ticks ***
-    locator = mdates.AutoDateLocator(
-        minticks=5, maxticks=10
-    )  # Adjust minticks/maxticks as desired
-    formatter = mdates.ConciseDateFormatter(locator)  # Use concise formatter
-
-    ax.xaxis.set_major_locator(locator)
-    ax.xaxis.set_major_formatter(formatter)
-    # --- End of AutoDateLocator usage ---
-
-    ax.set_xlabel('Date')
+    if is_synthetic_start_date:
+        log.info('Hiding bottom date axis due to synthetic start date.')
+        # Hide ticks and labels
+        ax.xaxis.set_major_locator(mticker.NullLocator())
+        ax.xaxis.set_major_formatter(mticker.NullFormatter())
+        # Remove label
+        ax.set_xlabel('')
+    else:
+        # Keep original date axis configuration
+        locator = mdates.AutoDateLocator(minticks=5, maxticks=10)
+        formatter = mdates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(formatter)
+        ax.set_xlabel('Date')
+        # fig.autofmt_xdate(rotation=30, ha="right") # Only if needed with ConciseFormatter
 
     # --- Construct and Set Title ---
     title_str = f'{project_name} - Timeline'
-    if project_publish_date:
+    # Only add publish date to title if it's meaningful (not synthetic start)
+    if project_publish_date and not is_synthetic_start_date:
         # Format publish date nicely
         title_str += f" (Data as of: {project_publish_date.strftime('%Y-%m-%d %H:%M')})"
     ax.set_title(title_str)  # Use the constructed title
@@ -361,7 +369,8 @@ def plot_project_gantt_with_start_end(
     fig.autofmt_xdate(rotation=30, ha='right')
 
     # --- Add Vertical Line for Publish Date ---
-    if project_publish_date:
+    # Only draw if date is valid AND start date wasn't synthetic
+    if project_publish_date and not is_synthetic_start_date:
         publish_date_num = mdates.date2num(project_publish_date)
         # Check if the publish date is within the plotted range
         if plot_start_num < publish_date_num < plot_limit_end_num:
@@ -388,8 +397,16 @@ def plot_project_gantt_with_start_end(
     ax2.set_xlim(lim_min_num, lim_max_num)
 
     # --- Link the Locators and Apply FuncFormatter ---
-    bottom_locator = ax.xaxis.get_major_locator()
-    ax2.xaxis.set_major_locator(bottom_locator)  # Keep locators linked
+    bottom_locator = (
+        ax.xaxis.get_major_locator()
+    )  # Gets NullLocator if bottom is hidden
+    # If bottom locator is Null, use a default DayLocator for top axis ticks
+    if isinstance(bottom_locator, mticker.NullLocator):
+        ax2.xaxis.set_major_locator(
+            mdates.DayLocator(interval=1)
+        )  # Fallback for top axis
+    else:
+        ax2.xaxis.set_major_locator(bottom_locator)  # Link if bottom has locator
 
     # 3. Define the formatter function (using round())
     def day_index_formatter(tick_val, pos):
@@ -403,7 +420,7 @@ def plot_project_gantt_with_start_end(
     ax2.xaxis.set_major_formatter(mticker.FuncFormatter(day_index_formatter))
     # --- End of Linking ---
 
-    ax2.set_xlabel('Day Index (Relative to Project Start)')
+    ax2.set_xlabel('Day Index')
 
     # Link limits callback
     def update_ax2_limits(ax_bottom):
@@ -412,7 +429,10 @@ def plot_project_gantt_with_start_end(
     ax.callbacks.connect('xlim_changed', update_ax2_limits)
 
     # 6. Add Legend
-    legend_handles = []
+    handles, labels = (
+        ax.get_legend_handles_labels()
+    )  # Get existing handles/labels (like the vline if drawn)
+    type_legend_handles = []
     used_types = set(
         task_data['type'] for task_data in tasks.values() if 'type' in task_data
     )  # Check 'type' exists
@@ -420,11 +440,12 @@ def plot_project_gantt_with_start_end(
         if task_type in used_types:
             color = TASK_COLORS[task_type]
             label = task_type.name.replace('_', ' ').title()
-            legend_handles.append(mpatches.Patch(color=color, label=label))
-    if legend_handles:  # Only add legend if there are handles
+            type_legend_handles.append(mpatches.Patch(color=color, label=label))
+    all_handles = type_legend_handles + handles
+    if all_handles:  # Only add legend if there are handles
         ax.legend(
-            handles=legend_handles,
-            title='Task Types',
+            handles=all_handles,
+            title='Legend',
             bbox_to_anchor=(1.04, 0.5),
             loc='center left',
             borderaxespad=0.0,

@@ -22,7 +22,7 @@ project_info = {
     'name': 'Processed Data Project',
     #'start_date': '2025-01-01',
     'publish_date': '2025-01-15',
-    'calendar': 'standard',
+    #'calendar': 'standard',
 }
 
 # List of task dictionaries, similar to JSON structure
@@ -74,6 +74,7 @@ logging.info('Processing raw data...')
     calendar_type,
     project_name,
     project_publish_date,
+    is_synthetic_start_date,
 ) = process_project_data(project_info, tasks_input)
 
 if tasks is None or project_start_date is None:
@@ -91,6 +92,7 @@ fig = plot_project_gantt_with_start_end(
     calendar_type,
     project_name,
     project_publish_date,
+    is_synthetic_start_date,
 )
 
 # --- 4. Save Plot to SVG File ---

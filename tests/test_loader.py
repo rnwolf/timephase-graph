@@ -68,9 +68,16 @@ def sample_json_data_standard(tmp_path):
 def test_load_standard_calendar(sample_json_data_standard):
     """Tests loading data with a standard calendar and basic fields."""
     file_path = sample_json_data_standard
-    (start_date, tasks, dependencies, stream_map, calendar, name, publish_date) = (
-        load_process_project_data(file_path)
-    )
+    (
+        start_date,
+        tasks,
+        dependencies,
+        stream_map,
+        calendar,
+        name,
+        publish_date,
+        is_synthetic_start_date,
+    ) = load_process_project_data(file_path)
 
     # Assertions
     assert start_date is not None
@@ -187,9 +194,16 @@ def sample_data_missing_optional(tmp_path):
 def test_load_standard_calendar(sample_json_data_standard):
     """Tests loading data with a standard calendar and basic fields."""
     file_path = sample_json_data_standard
-    (start_date, tasks, dependencies, stream_map, calendar, name, publish_date) = (
-        load_process_project_data(file_path)
-    )
+    (
+        start_date,
+        tasks,
+        dependencies,
+        stream_map,
+        calendar,
+        name,
+        publish_date,
+        is_synthetic_start_date,
+    ) = load_process_project_data(file_path)
 
     # Assertions
     assert start_date is not None
@@ -256,16 +270,26 @@ def test_load_missing_start_date(tmp_path):
     with open(file_path, 'w') as f:
         json.dump(data, f)
     result = load_process_project_data(file_path)
-    assert all(item is None for item in result)
+    # Use today's date as a base, normalize to midnight, then adjust
+    today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    expected = (today_midnight, {}, [], {}, 'continuous', 'No Start Date', None, True)
+    assert result == expected
 
 
 # --- New Test for Missing Optional Fields ---
 def test_load_missing_optional_fields(sample_data_missing_optional):
     """Tests default values when optional fields are missing."""
     file_path = sample_data_missing_optional
-    (start_date, tasks, dependencies, stream_map, calendar, name, publish_date) = (
-        load_process_project_data(file_path)
-    )
+    (
+        start_date,
+        tasks,
+        dependencies,
+        stream_map,
+        calendar,
+        name,
+        publish_date,
+        is_synthetic_start_date,
+    ) = load_process_project_data(file_path)
 
     # Check project_info defaults
     assert start_date == datetime(2025, 2, 1)  # Check start date is still loaded
@@ -311,9 +335,16 @@ def test_process_data_missing_optional():
         }
     ]
 
-    (start_date, tasks, dependencies, stream_map, calendar, name, publish_date) = (
-        process_project_data(project_info, tasks_list)
-    )
+    (
+        start_date,
+        tasks,
+        dependencies,
+        stream_map,
+        calendar,
+        name,
+        publish_date,
+        is_synthetic_start_date,
+    ) = process_project_data(project_info, tasks_list)
 
     # Check project_info defaults
     assert start_date == datetime(2025, 3, 1)
