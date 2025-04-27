@@ -2,7 +2,7 @@
 name = "pyganttccpm"
 version = "0.1.0"
 #packages = ["src"]
-description = "using Matplotlib to generate Gantt-style charts visualizing Critical Chain Project Management (CCPM) task networks."
+description = "Use Matplotlib to generate Gantt-style charts visualizing Critical Chain Project Management (CCPM) task networks."
 readme = "README.md"
 keywords = ["planning", "resource management", "task management", "collaboration", "visualization", "cross-platform"]
 requires-python = ">=3.11"
@@ -50,11 +50,7 @@ dev = [
 requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-
 [tool.setuptools]
-#packages = ["src"]
-#packages = find_packages(where="src")
-# This will find and include the main package and all subpackages
 packages = { find = { include = ["pyganttccpm"] } }
 
 [tool.ruff.lint]

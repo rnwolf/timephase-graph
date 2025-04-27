@@ -119,9 +119,3 @@ def test_plotter_reference_svg(minimal_plot_data, tmp_path):
         pytest.fail(f'test_plotter_reference_svg raised an exception: {e}')
     finally:
         plt.close('all')  # Clean up the figure
-
-
-# More advanced tests could:
-# - Mock matplotlib calls (complex)
-# - Check properties of the returned figure/axes (e.g., title, labels, number of bars)
-# - Use image comparison libraries (like pytest-mpl) if visual regression testing is needed

@@ -50,13 +50,15 @@ pyganttccpm/
 │   ├── graph_utils.py    # Graph manipulation (add start/end)
 │   └── plotter.py        # The main plotting function
 ├── examples/             # Optional: Example usage scripts
-│   └── create_chart.py
-├── tests/                # Optional: Unit/integration tests
+│   └── create_chart.py   # Examples of how to use the package
+├── tests/                # Tests to make sure package works
 │   └── ...
+├── .env                  # Environment variable to indicate if reference files to be saved for required tests
+├── .gitignore            # What files to ignore from version control
 ├── pyproject.toml        # Build system configuration
-├── setup.cfg             # Package metadata and dependencies (alternative to pyproject.toml)
 ├── README.md             # Updated documentation
 └── LICENSE               # Your chosen open-source license
+
 
 
 ## Development

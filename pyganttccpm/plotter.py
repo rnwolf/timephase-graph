@@ -8,11 +8,13 @@ import networkx as nx
 from datetime import datetime, timedelta
 import logging
 
-log = logging.getLogger('pyganttccpm')  # <-- Get the library logger
 
 # Import from other modules within the package
 from .config import TASK_COLORS, TaskType, START_NODE, END_NODE
 from .graph_utils import add_global_start_end
+
+log = logging.getLogger('pyganttccpm')  # <-- Get the library logger
+
 
 # Set UTC timezone preference within the module or rely on user setting it
 # mpl.rcParams["timezone"] = "UTC" # Consider if this should be enforced or documented
