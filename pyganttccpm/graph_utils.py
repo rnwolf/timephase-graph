@@ -15,6 +15,9 @@ def add_global_start_end(G, tasks, stream_map):
     start_node_name = START_NODE
     end_node_name = END_NODE
 
+    if not isinstance(G, nx.Graph):
+        raise TypeError("The parameter 'G' must be a networkx Graph object.")
+
     if start_node_name in G or end_node_name in G:
         log.info('Info: START/END nodes already exist.')
         return  # Already added

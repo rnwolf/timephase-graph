@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
 # --- End Logging Setup ---
 
-from .plotter import plot_project_gantt_with_start_end
+from .plotter import plot_project_gantt
 from .loader import process_project_data  # <-- Add this
 from .config import TaskType
 
@@ -25,7 +25,8 @@ from .config import TaskType
 # https://github.com/astral-sh/uv/issues/7036
 if not ('TCL_LIBRARY' in environ and 'TK_LIBRARY' in environ):
     try:
-        tkinter.Tk()
+        root = tkinter.Tk()
+        root.destroy()
     except tkinter.TclError:
         tk_dir = 'tcl' if platform.system() == 'Windows' else 'lib'
         tk_path = Path(base_prefix) / tk_dir

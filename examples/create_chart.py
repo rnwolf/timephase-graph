@@ -2,7 +2,7 @@
 import sys
 import logging
 
-from pyganttccpm import plot_project_gantt_with_start_end  # Import the main function
+from pyganttccpm import plot_project_gantt  # Import the main function
 from pyganttccpm.loader import load_process_project_data  # Import the loader
 
 # --- Basic Logging Configuration for the Application ---
@@ -14,7 +14,9 @@ logging.basicConfig(
 # --- End Logging Configuration ---
 
 # --- Configuration ---
-JSON_FILE_PATH = '../project-gantt-data.json'  # Adjust path relative to example script
+JSON_FILE_PATH = (
+    './examples/project-gantt-data.json'  # Adjust path relative to example script
+)
 OUTPUT_SVG_FILE = '../gantt_chart_example.svg'  # Adjust path
 
 # 1. Load Data using the loader function from the package
@@ -27,6 +29,7 @@ logging.info(f'Loading data from {JSON_FILE_PATH}...')
     calendar_type,
     project_name,
     project_publish_date,
+    is_synthetic_start_date,
 ) = load_process_project_data(JSON_FILE_PATH)
 
 if tasks is None or project_start_date is None:
@@ -36,7 +39,7 @@ logging.info('Data loaded successfully.')
 
 # 2. Create the Gantt Plot using the main package function
 logging.info('Generating plot...')
-fig = plot_project_gantt_with_start_end(
+fig = plot_project_gantt(
     project_start_date,
     tasks,
     dependencies,
@@ -44,6 +47,8 @@ fig = plot_project_gantt_with_start_end(
     calendar_type,
     project_name,
     project_publish_date,
+    is_synthetic_start_date,
+    add_start_end_nodes=False,
 )
 
 # 3. Save Plot to SVG File

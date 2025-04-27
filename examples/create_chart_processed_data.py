@@ -6,7 +6,8 @@ import logging
 
 
 # Import the processing and plotting functions
-from pyganttccpm import process_project_data, plot_project_gantt_with_start_end
+from pyganttccpm import process_project_data, plot_project_gantt  # NEW
+
 
 # --- Basic Logging Configuration for the Application ---
 # This configures the root logger. Library logs will flow up to it.
@@ -75,7 +76,21 @@ logging.info('Processing raw data...')
     project_name,
     project_publish_date,
     is_synthetic_start_date,
+    # add_start_end_nodes=True # This is the default, can omit
 ) = process_project_data(project_info, tasks_input)
+
+# If you want this example WITHOUT start/end nodes:
+# fig = plot_project_gantt(
+#     project_start_date,
+#     tasks,
+#     dependencies,
+#     stream_map,
+#     calendar_type,
+#     project_name,
+#     project_publish_date,
+#     is_synthetic_start_date,
+#     add_start_end_nodes=False # Pass False explicitly
+# )
 
 if tasks is None or project_start_date is None:
     logging.info('Failed to process project data. Exiting.')
